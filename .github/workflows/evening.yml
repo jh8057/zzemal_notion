@@ -1,0 +1,32 @@
+name: Evening Briefing
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # 매일 12:00 UTC = KST 21:00
+  workflow_dispatch:
+
+jobs:
+  send-briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run evening briefing
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_SMALLSTEPS_DB_ID: ${{ secrets.NOTION_SMALLSTEPS_DB_ID }}
+          NOTION_GOALS_DB_ID: ${{ secrets.NOTION_GOALS_DB_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        run: npm run evening

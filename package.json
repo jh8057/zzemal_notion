@@ -1,0 +1,18 @@
+{
+  "name": "daily-assistant",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "morning": "node src/morningBriefing.js",
+    "evening": "node src/eveningBriefing.js",
+    "mcp": "node mcp-server/server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@notionhq/client": "^2.2.15",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0",
+    "rss-parser": "^3.13.0"
+  }
+}
