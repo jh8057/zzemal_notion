@@ -2,8 +2,7 @@ import "dotenv/config";
 import { getWeekRange } from "./utils.js";
 import { getInterests, getSmallSteps } from "./clients/notionClient.js";
 import { getWeekEvents } from "./clients/calendarClient.js";
-import { generateInsights } from "./clients/geminiClient.js";
-import { fetchNews } from "./clients/newsClient.js";
+import { generateInsights, generateInterestContent } from "./clients/geminiClient.js";
 import { getDailyProblem } from "./clients/leetcodeClient.js";
 import { sendEmail } from "./clients/gmailClient.js";
 import { morningEmail } from "./templates.js";
@@ -19,10 +18,10 @@ async function main() {
   const smallSteps = await getSmallSteps(false);
 
   console.log("🔍 관심사 조회...");
-  const keywords = await getInterests();
+  const interests = await getInterests();
 
-  console.log(`📰 뉴스 수집 (${keywords.length}개 키워드)...`);
-  const news = keywords.length ? await fetchNews(keywords) : [];
+  console.log(`✨ 관심사 콘텐츠 생성 (${interests.length}개)...`);
+  const interestContent = interests.length ? await generateInterestContent(interests) : [];
 
   console.log("✨ Gemini 인사이트 생성...");
   const insights = await generateInsights(events, smallSteps);
@@ -45,7 +44,7 @@ async function main() {
 
   console.log("📧 이메일 발송...");
   const subject = `☀️ 아침 브리핑 — ${start} ~ ${end}`;
-  const html = morningEmail({ events, smallSteps, news, insights, leetcode });
+  const html = morningEmail({ events, smallSteps, interestContent, insights, leetcode });
   await sendEmail(recipient, subject, html);
 
   console.log(`✅ 발송 완료 → ${recipient}`);

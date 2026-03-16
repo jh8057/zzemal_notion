@@ -61,7 +61,7 @@ function fmtDateLabel(isoDate) {
   });
 }
 
-export function morningEmail({ events, smallSteps, news, insights, leetcode }) {
+export function morningEmail({ events, smallSteps, interestContent, insights, leetcode }) {
   const { start, end } = getWeekRange();
   const weekLabel = `${fmtDateLabel(start)} ~ ${fmtDateLabel(end)}`;
 
@@ -95,35 +95,24 @@ export function morningEmail({ events, smallSteps, news, insights, leetcode }) {
   }
   if (!stepsHtml) stepsHtml = '<p style="color:#aaa;font-size:14px">이번 주 스몰스탭 없음</p>';
 
-  // 뉴스
-  const grouped = new Map();
-  for (const n of news) {
-    if (!grouped.has(n.keyword)) grouped.set(n.keyword, []);
-    grouped.get(n.keyword).push(n);
+  // 관심사 콘텐츠
+  let interestHtml = "";
+  for (const { name, content } of (interestContent ?? [])) {
+    interestHtml += `
+      <div style="margin-bottom:16px">
+        <div class="news-kw">📌 ${name}</div>
+        <div style="font-size:14px;line-height:1.8;white-space:pre-wrap">${content}</div>
+      </div>`;
   }
-  let newsHtml = "";
-  for (const [kw, articles] of grouped) {
-    newsHtml += `<div class="news-kw">🔍 ${kw}</div>`;
-    for (const a of articles) {
-      newsHtml += `<div><a href="${a.link}" target="_blank">${a.title}</a></div>`;
-    }
-  }
-  if (!newsHtml) newsHtml = '<p style="color:#aaa;font-size:14px">수집된 뉴스 없음</p>';
+  if (!interestHtml) interestHtml = '<p style="color:#aaa;font-size:14px">관심사 콘텐츠 없음</p>';
 
   // LeetCode
   const diffCls = leetcode.difficulty;
-  const tagsHtml = (leetcode.tags ?? []).map((t) => `<span class="pill">${t}</span>`).join(" ");
-  const hintsHtml = (leetcode.hints ?? [])
-    .slice(0, 2)
-    .map((h, i) => `<div class="hint">💡 힌트 ${i + 1}: ${h}</div>`)
-    .join("");
   const leetHtml = `
     <div class="leet-meta">
-      <span class="pill ${diffCls}">${leetcode.difficulty}</span> ${tagsHtml}
+      <span class="pill ${diffCls}">${leetcode.difficulty}</span>
       &nbsp;<a href="${leetcode.link}" style="font-size:13px;color:#1a73e8">문제 풀기 →</a>
-    </div>
-    <div class="leet-content">${leetcode.content.slice(0, 800)}${leetcode.content.length > 800 ? "..." : ""}</div>
-    ${hintsHtml}`;
+    </div>`;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -152,8 +141,8 @@ export function morningEmail({ events, smallSteps, news, insights, leetcode }) {
   </div>
 
   <div class="section">
-    <h2>📰 관심 뉴스</h2>
-    ${newsHtml}
+    <h2>📌 관심사</h2>
+    ${interestHtml}
   </div>
 
   <div class="section">
@@ -166,7 +155,7 @@ export function morningEmail({ events, smallSteps, news, insights, leetcode }) {
 </body></html>`;
 }
 
-export function eveningEmail({ incompleteSteps, goals, suggestions }) {
+export function eveningEmail({ incompleteSteps, goals, suggestions, suggestedSteps, goalRecommendations }) {
   const { start, end } = getWeekRange();
   const weekLabel = `${fmtDateLabel(start)} ~ ${fmtDateLabel(end)}`;
 
@@ -221,6 +210,19 @@ export function eveningEmail({ incompleteSteps, goals, suggestions }) {
   <div class="section">
     <h2>💡 오늘 하면 좋을 행동</h2>
     <div class="insight-box">${suggestions.replace(/\n/g, "<br>")}</div>
+  </div>
+
+  <div class="section">
+    <h2>📝 내일 스몰스탭 (Notion 자동 추가됨)</h2>
+    ${(suggestedSteps ?? []).length
+      ? (suggestedSteps ?? []).map((s) => `<div class="step">⬜ ${s}</div>`).join("")
+      : '<p style="color:#aaa;font-size:14px">생성된 스몰스탭 없음</p>'
+    }
+  </div>
+
+  <div class="section">
+    <h2>🌟 새 목표 추천</h2>
+    <div class="insight-box">${(goalRecommendations ?? "").replace(/\n/g, "<br>")}</div>
   </div>
 
   <div class="footer">Daily Assistant · GitHub Actions</div>

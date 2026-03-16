@@ -35,6 +35,24 @@ ${stepsText}`;
 }
 
 /**
+ * 관심사별 원하는 바 기반 콘텐츠 생성
+ * @param {Array<{name, description}>} interests
+ * @returns {Promise<Array<{name, content}>>}
+ */
+export async function generateInterestContent(interests) {
+  const results = await Promise.all(
+    interests.map(async ({ name, description }) => {
+      const prompt = description
+        ? `다음 주제에 대해 요청된 내용을 한국어로 알려주세요. 간결하게 3~5개 항목으로.\n\n주제: ${name}\n요청: ${description}`
+        : `${name}에 관한 유용한 정보를 한국어로 3~5가지 알려주세요.`;
+      const result = await getModel().generateContent(prompt);
+      return { name, content: result.response.text().trim() };
+    })
+  );
+  return results;
+}
+
+/**
  * 저녁: 미완료 스몰스탭 + 목표 기반 행동 제안 생성
  * @param {Array} incompleteSteps
  * @param {Array} goals
@@ -53,6 +71,53 @@ export async function generateEveningSuggestions(incompleteSteps, goals) {
 ${stepsText}
 
 ## 목표
+${goalsText}`;
+
+  const result = await getModel().generateContent(prompt);
+  return result.response.text().trim();
+}
+
+/**
+ * 목표 기반 내일 스몰스탭 제안 (구조화된 배열 반환)
+ * @param {Array} goals
+ * @param {Array} incompleteSteps
+ * @returns {Promise<string[]>} 스몰스탭 제목 목록
+ */
+export async function suggestSmallSteps(goals, incompleteSteps) {
+  const goalsText =
+    goals.map((g) => `- ${g.title} (진행률 ${g.progress ?? 0}%)`).join("\n") || "없음";
+  const stepsText =
+    incompleteSteps.map((s) => `- ${s.title}`).join("\n") || "없음";
+
+  const prompt = `아래 목표와 미완료 스몰스탭을 보고, 내일 할 수 있는 구체적인 스몰스탭 2~3개를 제안해주세요.
+반드시 JSON 배열 형식으로만 응답하세요. 예: ["스몰스탭1", "스몰스탭2", "스몰스탭3"]
+
+## 목표
+${goalsText}
+
+## 미완료 스몰스탭 (참고용, 중복 제안 금지)
+${stepsText}`;
+
+  const result = await getModel().generateContent(prompt);
+  const text = result.response.text().trim();
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+  return JSON.parse(match[0]);
+}
+
+/**
+ * 기존 목표 기반 새 목표 추천
+ * @param {Array} goals
+ * @returns {Promise<string>}
+ */
+export async function recommendGoals(goals) {
+  const goalsText =
+    goals.map((g) => `- ${g.title} (진행률 ${g.progress ?? 0}%)`).join("\n") || "없음";
+
+  const prompt = `아래는 현재 설정된 목표 목록입니다. 이를 바탕으로 다음에 도전해볼 만한 새로운 목표 2~3가지를 한국어로 추천해주세요.
+각 목표마다 한 줄 이유도 함께 적어주세요. 간결하게.
+
+## 현재 목표
 ${goalsText}`;
 
   const result = await getModel().generateContent(prompt);

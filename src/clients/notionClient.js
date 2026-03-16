@@ -16,12 +16,29 @@ function getTitleText(props, ...keys) {
   return "";
 }
 
-/** 관심사/키워드 목록 반환 */
+/** 관심사 목록 반환 (이름 + 페이지 본문의 원하는 바) */
 export async function getInterests() {
   const { results } = await getClient().databases.query({
     database_id: process.env.NOTION_INTERESTS_DB_ID,
   });
-  return results.map((p) => getTitleText(p.properties, "Name", "키워드", "Keyword")).filter(Boolean);
+
+  const interests = await Promise.all(
+    results.map(async (p) => {
+      const name = getTitleText(p.properties, "Name", "키워드", "Keyword");
+      if (!name) return null;
+
+      const { results: blocks } = await getClient().blocks.children.list({ block_id: p.id });
+      const description = blocks
+        .filter((b) => b.type === "bulleted_list_item" || b.type === "paragraph")
+        .map((b) => (b[b.type]?.rich_text ?? []).map((t) => t.plain_text).join(""))
+        .filter(Boolean)
+        .join(", ");
+
+      return { name, description };
+    })
+  );
+
+  return interests.filter(Boolean);
 }
 
 /**
@@ -53,6 +70,22 @@ export async function getSmallSteps(onlyIncomplete = false) {
     const done = props["완료"]?.checkbox ?? props["Done"]?.checkbox ?? false;
     const date = props["날짜"]?.date?.start ?? "";
     return { title, done, date };
+  });
+}
+
+/**
+ * 스몰스탭 생성 (Notion DB에 새 항목 추가)
+ * @param {string} title
+ * @param {string} date YYYY-MM-DD
+ */
+export async function createSmallStep(title, date) {
+  await getClient().pages.create({
+    parent: { database_id: process.env.NOTION_SMALLSTEPS_DB_ID },
+    properties: {
+      Name: { title: [{ text: { content: title } }] },
+      날짜: { date: { start: date } },
+      완료: { checkbox: false },
+    },
   });
 }
 
