@@ -20,15 +20,33 @@ export async function getWeekEvents() {
 
   const { timeMin, timeMax } = getWeekRangeDatetime();
 
-  const res = await calendar.events.list({
-    calendarId: "primary",
-    timeMin,
-    timeMax,
-    singleEvents: true,
-    orderBy: "startTime",
+  // 전체 캘린더 목록 조회
+  const calListRes = await calendar.calendarList.list();
+  const calendarIds = (calListRes.data.items ?? []).map((c) => c.id);
+
+  // 모든 캘린더에서 병렬로 이벤트 조회
+  const results = await Promise.all(
+    calendarIds.map((calendarId) =>
+      calendar.events.list({
+        calendarId,
+        timeMin,
+        timeMax,
+        singleEvents: true,
+        orderBy: "startTime",
+      }).catch(() => ({ data: { items: [] } }))
+    )
+  );
+
+  const allItems = results.flatMap((res) => res.data.items ?? []);
+
+  // 시작 시간 기준 정렬
+  allItems.sort((a, b) => {
+    const aStart = a.start.dateTime ?? a.start.date ?? "";
+    const bStart = b.start.dateTime ?? b.start.date ?? "";
+    return aStart.localeCompare(bStart);
   });
 
-  return (res.data.items ?? []).map((item) => {
+  return allItems.map((item) => {
     const startRaw = item.start.dateTime ?? item.start.date ?? "";
     const endRaw = item.end.dateTime ?? item.end.date ?? "";
     const isAllDay = !item.start.dateTime;
