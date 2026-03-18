@@ -1,8 +1,6 @@
 /** KST 기준 오늘 날짜 (YYYY-MM-DD) */
 export function todayISO() {
-  return new Date(
-    new Date().toLocaleString("en-CA", { timeZone: "Asia/Seoul" })
-  ).toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 
 /** HH:MM 포맷 변환 (KST) */
@@ -21,14 +19,12 @@ export function fmtTime(dtStr) {
  * @returns {{ start: string, end: string }} YYYY-MM-DD strings
  */
 export function getWeekRange() {
-  const today = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" })
-  );
-  const start = today.toLocaleDateString("en-CA"); // YYYY-MM-DD
+  const fmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
+  const start = fmt.format(new Date());
 
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 6);
-  const end = endDate.toLocaleDateString("en-CA");
+  // KST 기준 오늘 자정을 UTC ms로 계산 후 6일 더함
+  const startMs = new Date(`${start}T00:00:00+09:00`).getTime();
+  const end = fmt.format(new Date(startMs + 6 * 24 * 60 * 60 * 1000));
 
   return { start, end };
 }
