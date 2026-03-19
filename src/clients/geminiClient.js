@@ -8,6 +8,29 @@ function getModel() {
 }
 
 /**
+ * 429 Too Many Requests 시 retryDelay 만큼 대기 후 재시도
+ */
+async function withRetry(fn, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.status === 429 && attempt < maxRetries) {
+        const retryInfo = err.errorDetails?.find(
+          (d) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+        );
+        const delayStr = retryInfo?.retryDelay ?? "10s";
+        const delaySec = parseInt(delayStr) + 2;
+        console.log(`  ⏳ Gemini 429 한도 초과 — ${delaySec}초 후 재시도 (${attempt + 1}/${maxRetries})...`);
+        await new Promise((r) => setTimeout(r, delaySec * 1000));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+/**
  * 이번 주 일정 + 스몰스탭 기반 인사이트 생성
  * @param {Array} events
  * @param {Array} smallSteps
@@ -30,7 +53,7 @@ ${eventsText}
 ## 이번 주 할 일 (스몰스탭)
 ${stepsText}`;
 
-  const result = await getModel().generateContent(prompt);
+  const result = await withRetry(() => getModel().generateContent(prompt));
   return result.response.text().trim();
 }
 
@@ -40,15 +63,14 @@ ${stepsText}`;
  * @returns {Promise<Array<{name, content}>>}
  */
 export async function generateInterestContent(interests) {
-  const results = await Promise.all(
-    interests.map(async ({ name, description }) => {
-      const prompt = description
-        ? `다음 주제에 대해 요청된 내용을 한국어로 알려주세요. 간결하게 3~5개 항목으로.\n\n주제: ${name}\n요청: ${description}`
-        : `${name}에 관한 유용한 정보를 한국어로 3~5가지 알려주세요.`;
-      const result = await getModel().generateContent(prompt);
-      return { name, content: result.response.text().trim() };
-    })
-  );
+  const results = [];
+  for (const { name, description } of interests) {
+    const prompt = description
+      ? `다음 주제에 대해 요청된 내용을 한국어로 알려주세요. 간결하게 3~5개 항목으로.\n\n주제: ${name}\n요청: ${description}`
+      : `${name}에 관한 유용한 정보를 한국어로 3~5가지 알려주세요.`;
+    const result = await withRetry(() => getModel().generateContent(prompt));
+    results.push({ name, content: result.response.text().trim() });
+  }
   return results;
 }
 
@@ -73,7 +95,7 @@ ${stepsText}
 ## 목표
 ${goalsText}`;
 
-  const result = await getModel().generateContent(prompt);
+  const result = await withRetry(() => getModel().generateContent(prompt));
   return result.response.text().trim();
 }
 
@@ -98,7 +120,7 @@ ${goalsText}
 ## 미완료 스몰스탭 (참고용, 중복 제안 금지)
 ${stepsText}`;
 
-  const result = await getModel().generateContent(prompt);
+  const result = await withRetry(() => getModel().generateContent(prompt));
   const text = result.response.text().trim();
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) return [];
@@ -120,6 +142,6 @@ export async function recommendGoals(goals) {
 ## 현재 목표
 ${goalsText}`;
 
-  const result = await getModel().generateContent(prompt);
+  const result = await withRetry(() => getModel().generateContent(prompt));
   return result.response.text().trim();
 }
