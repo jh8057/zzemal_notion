@@ -58,20 +58,38 @@ ${stepsText}`;
 }
 
 /**
- * 관심사별 원하는 바 기반 콘텐츠 생성
+ * 관심사별 원하는 바 기반 콘텐츠 생성 (단일 API 호출로 배치 처리)
  * @param {Array<{name, description}>} interests
  * @returns {Promise<Array<{name, content}>>}
  */
 export async function generateInterestContent(interests) {
-  const results = [];
-  for (const { name, description } of interests) {
-    const prompt = description
-      ? `다음 주제에 대해 요청된 내용을 한국어로 알려주세요. 간결하게 3~5개 항목으로.\n\n주제: ${name}\n요청: ${description}`
-      : `${name}에 관한 유용한 정보를 한국어로 3~5가지 알려주세요.`;
-    const result = await withRetry(() => getModel().generateContent(prompt));
-    results.push({ name, content: result.response.text().trim() });
+  if (interests.length === 0) return [];
+
+  const interestList = interests
+    .map(({ name, description }, i) =>
+      description
+        ? `${i + 1}. 주제: ${name} / 요청: ${description}`
+        : `${i + 1}. 주제: ${name}`
+    )
+    .join("\n");
+
+  const prompt = `아래 관심사 목록 각각에 대해 한국어로 유용한 정보를 3~5개 항목으로 작성해주세요.
+반드시 다음 JSON 배열 형식으로만 응답하세요:
+[{"name": "주제명", "content": "내용"}, ...]
+
+## 관심사 목록
+${interestList}`;
+
+  const result = await withRetry(() => getModel().generateContent(prompt));
+  const text = result.response.text().trim();
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) return interests.map(({ name }) => ({ name, content: "" }));
+
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return interests.map(({ name }) => ({ name, content: "" }));
   }
-  return results;
 }
 
 /**
